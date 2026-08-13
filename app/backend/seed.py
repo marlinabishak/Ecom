@@ -124,30 +124,53 @@ def _seed_user(db, email: str, password: str, name: str, role: str):
 def seed_all():
     db = SessionLocal()
     try:
+        # 1. Users
         _seed_user(db, os.environ.get("SUPER_ADMIN_EMAIL", "test_super@shop.com"), os.environ.get("SUPER_ADMIN_PASSWORD", "password"), "Super Admin", "super_admin")
         _seed_user(db, os.environ.get("ADMIN_EMAIL", "test_admin@shop.com"), os.environ.get("ADMIN_PASSWORD", "password"), "Store Admin", "admin")
         _seed_user(db, os.environ.get("SUPPORT_EMAIL", "test_support@shop.com"), os.environ.get("SUPPORT_PASSWORD", "password"), "Support Exec", "support")
         _seed_user(db, os.environ.get("DEMO_USER_EMAIL", "test_customer@shop.com"), os.environ.get("DEMO_USER_PASSWORD", "password"), "Demo Customer", "customer")
         
-        # Categories
+        # 2. Categories
+        category_map = {}
         for cat in SAMPLE_CATEGORIES:
             existing = db.query(Category).filter(Category.slug == cat["slug"]).first()
             if not existing:
-                c = Category(**cat)
-                db.add(c)
-                
-        db.commit() # commit categories first for foreign keys
-        
-        # Products
+                existing = Category(**cat)
+                db.add(existing)
+                db.flush()  # Ensures ID is assigned if needed before final commit
+            else:
+                for key, val in cat.items():
+                    setattr(existing, key, val)
+            category_map[cat["slug"]] = existing
+
+        db.commit()
+
+        # 3. Products
         for p in SAMPLE_PRODUCTS:
-            existing = db.query(Product).filter(Product.slug == p["slug"]).first()
+            p_data = p.copy()
+            cat_slug = p_data.pop("category_slug", None)
+            
+            # Map category_id or category relationship dynamically depending on your model definition
+            if hasattr(Product, "category_id") and cat_slug in category_map:
+                p_data["category_id"] = category_map[cat_slug].id
+            elif hasattr(Product, "category_slug"):
+                p_data["category_slug"] = cat_slug
+
+            existing = db.query(Product).filter(Product.slug == p_data["slug"]).first()
             if not existing:
-                pr = Product(**p)
+                pr = Product(**p_data)
                 db.add(pr)
             else:
-                existing.images = p["images"]
+                # Update all provided keys so seed data stays synchronized
+                for key, val in p_data.items():
+                    setattr(existing, key, val)
                 
         db.commit()
+        print("Database seeded successfully.")
+    except Exception as e:
+        db.rollback()
+        print(f"Error seeding database: {e}")
+        raise
     finally:
         db.close()
 
