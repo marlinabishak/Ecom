@@ -28,6 +28,7 @@ origins = [frontend_url, "http://localhost:5173", "http://localhost:5174", "http
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
