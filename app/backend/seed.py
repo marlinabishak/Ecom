@@ -112,14 +112,13 @@ SAMPLE_PRODUCTS = [
 
 def _seed_user(db, email: str, password: str, name: str, role: str):
     existing = db.query(User).filter(User.email == email).first()
-    hashed = hash_password(password)
     if not existing:
+        hashed = hash_password(password)
         u = User(email=email, password_hash=hashed, name=name, role=role)
         db.add(u)
-    elif not verify_password(password, existing.password_hash) or existing.role != role:
-        existing.password_hash = hashed
-        existing.role = role
-        existing.name = name
+        print(f"Created initial user: {email}")
+    else:
+        print(f"User {email} already exists. Skipping password overwrite.")
 
 def seed_all():
     db = SessionLocal()
@@ -173,33 +172,5 @@ def seed_all():
         raise
     finally:
         db.close()
-def force_reset_users():
-    db = SessionLocal()
-    users_data = [
-        {"email": "super@shop.com", "pass": "Super@123", "name": "Super Admin", "role": "super_admin"},
-        {"email": "admin@shop.com", "pass": "Admin@123", "name": "Store Admin", "role": "admin"},
-        {"email": "support@shop.com", "pass": "Support@123", "name": "Support Exec", "role": "support"},
-        {"email": "user@shop.com", "pass": "User@123", "name": "Demo Customer", "role": "customer"},
-    ]
-    
-    for u in users_data:
-        existing = db.query(User).filter(User.email == u["email"]).first()
-        if existing:
-            existing.password_hash = hash_password(u["pass"])
-            print(f"Updated password for {u['email']}")
-        else:
-            new_user = User(
-                email=u["email"],
-                password_hash=hash_password(u["pass"]),
-                name=u["name"],
-                role=u["role"]
-            )
-            db.add(new_user)
-            print(f"Created user {u['email']}")
-            
-    db.commit()
-    db.close()
-
 if __name__ == "__main__":
     seed_all()
-    force_reset_users()
